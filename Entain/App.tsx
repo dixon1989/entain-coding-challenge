@@ -19,53 +19,58 @@ import {
   View,
 } from 'react-native';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-import { getNedsResults } from './api';
-
-const Section: React.FC<{
-  title: string;
-}> = ({children, title}) => {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
+import {Colors} from 'react-native/Libraries/NewAppScreen';
+import CountDown from 'react-native-countdown-component';
+import {getNedsResults} from './api';
+import Moment from 'moment';
 
 const App = () => {
   const isDarkMode = useColorScheme() === 'dark';
+  const [nextToGo, setNextToGo] = React.useState([]);
+  const [raceData, setRaceData] = React.useState<any>();
+
   React.useEffect(() => {
     // Should Start grabbing data from webServices API
     const load = async () => {
-      console.log('load first', await getNedsResults());
+      const getRaceData = await getNedsResults();
+      setNextToGo(getRaceData.data.next_to_go_ids);
+      setRaceData(getRaceData.data.race_summaries);
     };
     load();
   }, []);
+
+  let raceDataList = [] as any;
+
+  const fetchData = () => {
+    if (raceData) {
+      nextToGo.forEach((id: string) => {
+        const filteredUsers = Object.fromEntries(
+          Object.entries(raceData).filter(([key]) => key.includes(id)),
+        );
+
+        raceDataList.push(filteredUsers[id]);
+      });
+    }
+  };
+
+  fetchData();
+
+  const checkRacingCategory = (categoryId: string) => {
+    switch (categoryId) {
+      case '9daef0d7-bf3c-4f50-921d-8e818c60fe61':
+        return 'Greyhound Racing';
+
+      case '161d9be2-e909-4326-8c2c-35ed71fb460b':
+        return 'Harness Racing';
+
+      case '4a2788f8-e825-4d36-9894-efd4baf1cfae':
+        return 'Horse Racing';
+
+      default:
+        return 'Unknown Category';
+    }
+  };
+
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
@@ -76,26 +81,27 @@ const App = () => {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
+        {raceData &&
+          raceDataList
+            .sort(
+              (a: any, b: any) =>
+                a.advertised_start.seconds - b.advertised_start.seconds,
+            )
+            .slice(0, 5)
+            .map((item: any, number: React.Key | null | undefined) => {
+              return (
+                <View key={number} style={{margin: 10}}>
+                  <Text>{checkRacingCategory(item.category_id)}</Text>
+                  <CountDown
+                    until={item.advertised_start.seconds}
+                    timeToShow={['D', 'M', 'S']}
+                    onFinish={() => console.log('finished')}
+                    size={20}
+                  />
+                  <Text>{item.race_number}</Text>
+                </View>
+              );
+            })}
       </ScrollView>
     </SafeAreaView>
   );
